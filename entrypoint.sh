@@ -4,19 +4,6 @@ set -e
 
 PKG="meeDamian/github-release@2.0"
 
-printf "INPUT_TAG/not set : %10s | %10s | %10s | %10s | %10s\n" \
-	"$INPUT_TAG" "${INPUT_TAG-not set}" "${INPUT_TAG+set}" \
-	             "${INPUT_TAG:-empty}"  "${INPUT_TAG:+not empty}"
-
-printf "INPUT_GZIP/default: %10s | %10s | %10s | %10s | %10s\n" \
-	"$INPUT_GZIP" "${INPUT_GZIP-not set}" "${INPUT_GZIP+set}" \
-	              "${INPUT_GZIP:-empty}"  "${INPUT_GZIP:+not empty}"
-
-printf "GITHUB_REF/builtin: %10s | %10s | %10s | %10s | %10s\n" \
-	"$GITHUB_REF" "${GITHUB_REF-not set}" "${GITHUB_REF+set}" \
-	              "${GITHUB_REF:-empty}"  "${GITHUB_REF:+not empty}"
-
-
 #
 ## Input verification
 #
@@ -116,36 +103,22 @@ if [ -z "$INPUT_DRAFT" ] && [ -n "$INPUT_FILES" ]; then
   draft=true
 fi
 
-quotes() { echo "$1" | sed 's|"|\\"|g'; }
-json_string() { [ -z "$1" ] && echo null || echo "\"$1\""; }
-json_bool() {
-	echo "$1" \
-		| tr '[:upper:]' '[:lower:]' \
-		| grep -iE '^(true|false|null)$' \
-	|| echo null
-}
-
-# Escape quotes for "name" & "body", and also escape newlines in "body".
-#   src: https://stackoverflow.com/a/1252191/390493
-body="$(quotes "$INPUT_BODY" | sed ':a;N;$!ba;s|\n|\\n|g')"
-name="$(quotes "$INPUT_NAME")"
-
 # Creating the object in a PATCH-friendly way
 #   If POST:  https://developer.github.com/v3/repos/releases/#create-a-release,
 #   If PATCH: https://developer.github.com/v3/repos/releases/#edit-a-release
 status_code="$(jq -nc \
-  --arg tag_name              "$tag" \
-  --argjson name              "$(json_string "$name")" \
-  --argjson body              "$(json_string "$body")" \
-  --argjson target_commitish  "$(json_string "$INPUT_COMMITISH")"  \
-  --argjson draft             "$(json_bool "$draft")" \
-  --argjson prerelease        "$(json_bool "$INPUT_PRERELEASE")" \
-  '{$tag_name, $target_commitish, $name, $body, $draft, $prerelease} | del(.[] | nulls)' | \
-  curl -sS  -X "$method"  -d @- \
-  --write-out "%{http_code}" -o "$TMP/$method.json" \
-  -H "Authorization: token $TOKEN" \
-  -H "Content-Type: application/json" \
-  "$full_url")"
+	--arg     tag_name         "$tag" \
+	--arg     name             "$INPUT_NAME" \
+	--arg     body             "$INPUT_BODY" \
+	--arg     target_commitish "$INPUT_COMMITISH" \
+	--argjson draft            "${draft:-null}" \
+	--argjson prerelease       "${INPUT_PRERELEASE:-null}" \
+	'{$tag_name, $name, $body, $target_commitish, $draft, $prerelease} | del(.[] | select(. == null or . == ""))' |
+	curl -sS -X "$method" -d @- \
+		--write-out "%{http_code}" -o "$TMP/$method.json" \
+		-H "Authorization: token $TOKEN" \
+		-H "Content-Type: application/json" \
+		"$full_url")"
 
 if [ "$status_code" != "200" ] && [ "$status_code" != "201" ]; then
   >&2 echo "::error::failed to create release (see log for details)"
