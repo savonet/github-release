@@ -4,6 +4,19 @@ set -e
 
 PKG="meeDamian/github-release@2.0"
 
+printf "INPUT_TAG/not set : %10s | %10s | %10s | %10s | %10s\n" \
+	"$INPUT_TAG" "${INPUT_TAG-not set}" "${INPUT_TAG+set}" \
+	             "${INPUT_TAG:-empty}"  "${INPUT_TAG:+not empty}"
+
+printf "INPUT_GZIP/default: %10s | %10s | %10s | %10s | %10s\n" \
+	"$INPUT_GZIP" "${INPUT_GZIP-not set}" "${INPUT_GZIP+set}" \
+	              "${INPUT_GZIP:-empty}"  "${INPUT_GZIP:+not empty}"
+
+printf "GITHUB_REF/builtin: %10s | %10s | %10s | %10s | %10s\n" \
+	"$GITHUB_REF" "${GITHUB_REF-not set}" "${GITHUB_REF+set}" \
+	              "${GITHUB_REF:-empty}"  "${GITHUB_REF:+not empty}"
+
+
 #
 ## Input verification
 #
